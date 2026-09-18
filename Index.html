@@ -485,6 +485,76 @@
 
         .zoom-controls button:hover { background: #111; }
         .zoom-controls .fit-button { font-size: 12px; }
+
+        @media (max-width: 1024px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .floorplan {
+                min-height: 58vh;
+                max-height: 62vh;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .info {
+                width: 100%;
+                flex-basis: auto;
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+
+            .resizer {
+                display: none;
+            }
+
+            .pin-key {
+                width: 180px;
+                top: 12px;
+                left: 12px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .pin-key {
+                position: static;
+                width: auto;
+                margin: 12px;
+            }
+
+            .container {
+                min-height: 0;
+            }
+
+            .floorplan {
+                min-height: 46vh;
+                max-height: 52vh;
+            }
+
+            .info {
+                padding: 16px 14px 20px;
+            }
+
+            .item-heading {
+                font-size: 18px;
+            }
+
+            .info h2 {
+                font-size: 16px;
+            }
+
+            .matching-list {
+                max-height: none;
+                min-height: 120px;
+            }
+
+            .zoom-controls {
+                bottom: 14px;
+                left: 14px;
+            }
+        }
     </style>
 </head>
 
