@@ -678,6 +678,8 @@
                 item.images = item.images && item.images.length ? item.images : (item.image ? [item.image] : []);
             }
 
+            item.zone = normalizeZone(item.zone);
+
             item.currentImageIndex = Number.isFinite(Number(item.currentImageIndex)) ? Number(item.currentImageIndex) : 0;
             if (item.images.length) {
                 const safeIndex = ((item.currentImageIndex % item.images.length) + item.images.length) % item.images.length;
@@ -888,6 +890,11 @@
             return String(value || '').trim().toLowerCase() === 'true';
         }
 
+        function normalizeZone(value) {
+            const raw = String(value ?? '').trim();
+            return raw || 'Unknown';
+        }
+
         function clampPercentage(value, fallback) {
             const numeric = Number(value);
             if (!Number.isFinite(numeric)) return fallback;
@@ -935,7 +942,7 @@
                 surveyType: String(record.surveyType || '').trim(),
                 floor: String(record.floor || '').trim(),
                 location: String(record.location || '').trim(),
-                zone: String(record.zone || '').trim(),
+                zone: normalizeZone(record.zone),
                 zoneLabel: String(record.zoneLabel || '').trim(),
                 itemDescription: String(record.itemDescription || '').trim(),
                 comments: String(record.comments || '').trim(),
@@ -1189,14 +1196,19 @@
                 directPinSelection = false;
             }
 
-            const zones = items.filter(function (item, index, array) {
-                return array.findIndex(function (candidate) { return candidate.zone === item.zone; }) === index;
-            });
+            const zones = items
+                .map(function (item) { return normalizeZone(item.zone); })
+                .filter(function (zone, index, array) { return array.indexOf(zone) === index; })
+                .sort(function (a, b) {
+                    if (a === 'Unknown') return 1;
+                    if (b === 'Unknown') return -1;
+                    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+                });
 
             const zoneOptionsHtml = [
                 "<option value='all'" + (selectedZoneFilter === "all" ? " selected" : "") + ">All zones</option>"
-            ].concat(zones.map(function (item) {
-                return "<option value='" + item.zone + "'" + (item.zone === selectedZoneFilter ? " selected" : "") + ">" + item.zone + "</option>";
+            ].concat(zones.map(function (zone) {
+                return "<option value='" + zone + "'" + (zone === selectedZoneFilter ? " selected" : "") + ">" + zone + "</option>";
             })).join("");
 
             const riskOptionsHtml = riskLevels.map(function (level) {
