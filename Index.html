@@ -413,7 +413,8 @@
             top: 20px;
             left: 20px;
             z-index: 9999;
-            width: 150px;
+            width: fit-content;
+            max-width: min(220px, calc(100vw - 26px));
             padding: 10px;
             border-radius: 6px;
             background: rgba(51, 51, 51, .95);
@@ -511,9 +512,11 @@
             }
 
             .pin-key {
-                width: 180px;
                 top: 12px;
-                left: 12px;
+                right: 12px;
+                left: auto;
+                width: fit-content;
+                max-width: min(210px, calc(100vw - 120px));
             }
 
             .zoom-controls {
@@ -527,9 +530,13 @@
 
         @media (max-width: 640px) {
             .pin-key {
-                position: static;
-                width: auto;
-                margin: 12px;
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                left: auto;
+                width: fit-content;
+                max-width: min(180px, calc(100vw - 110px));
+                margin: 0;
             }
 
             .container {
