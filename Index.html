@@ -600,16 +600,54 @@
             return item;
         }
 
-        function loadItems() {
+        function getFallbackItems() {
+            return JSON.parse(JSON.stringify(defaultItems)).map(normalizeItemImages);
+        }
+
+        function isLegacyFallbackItemSet(items) {
+            if (!Array.isArray(items) || items.length !== 1) return false;
+            const item = items[0] || {};
+            return String(item.id || '') === '39' && String(item.ref || '') === 'J169135';
+        }
+
+        function loadItemsFromStorage() {
             try {
                 const saved = window.localStorage.getItem(STORAGE_KEY);
-                if (!saved) return JSON.parse(JSON.stringify(defaultItems)).map(normalizeItemImages);
+                if (!saved) return [];
                 const parsed = JSON.parse(saved);
-                if (!Array.isArray(parsed) || !parsed.length) return JSON.parse(JSON.stringify(defaultItems)).map(normalizeItemImages);
+                if (!Array.isArray(parsed) || !parsed.length) return [];
+                if (isLegacyFallbackItemSet(parsed)) return [];
                 return parsed.map(normalizeItemImages);
             } catch (error) {
-                return JSON.parse(JSON.stringify(defaultItems)).map(normalizeItemImages);
+                return [];
             }
+        }
+
+        async function loadItemsFromCsv() {
+            try {
+                const response = await fetch('./acm_import_template.csv', { cache: 'no-store' });
+                if (!response.ok) return [];
+                const csvText = await response.text();
+                const parsed = parseCsv(csvText);
+                if (parsed.length < 2) return [];
+                const headers = parsed[0].map(function (header) {
+                    return String(header).trim();
+                });
+                const imported = parsed.slice(1).map(function (row) {
+                    return normalizeItemImages(csvToItem(row, headers));
+                }).filter(function (row) {
+                    return String(row.id || '').trim() !== '';
+                });
+                return imported;
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function loadItems() {
+            const storedItems = loadItemsFromStorage();
+            if (storedItems.length) return storedItems;
+            return getFallbackItems();
         }
 
         function persistItems() {
@@ -620,7 +658,25 @@
             }
         }
 
-        const items = loadItems();
+        let items = [];
+
+        async function initializeItems() {
+            const storedItems = loadItemsFromStorage();
+            if (storedItems.length) {
+                items = storedItems;
+                renderPins();
+                renderFilterShell();
+                return;
+            }
+
+            const csvItems = await loadItemsFromCsv();
+            items = csvItems.length ? csvItems : getFallbackItems();
+            if (csvItems.length) {
+                persistItems();
+            }
+            renderPins();
+            renderFilterShell();
+        }
 
         const riskLevels = ["High", "Medium", "Low", "Very Low", "NAD"];
         let captureCoordinatesMode = false;
@@ -1386,8 +1442,7 @@
         resizer.addEventListener("pointerup", stopResizing);
         resizer.addEventListener("pointercancel", stopResizing);
 
-        renderPins();
-        renderFilterShell();
+        initializeItems();
     </script>
 </body>
 
