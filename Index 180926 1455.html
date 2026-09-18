@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harrods Asbestos Portal</title>
+    <style>
+        :root {
+            --panel-width: 500px;
+            --border: #cccccc;
+            --ink: #222;
+            --muted: #666;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: var(--ink);
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .floorplan {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+            background: #f5f5f5;
+        }
+
+        .floorplan.can-pan {
+            cursor: grab;
+            touch-action: none;
+        }
+
+        .floorplan.is-panning {
+            cursor: grabbing;
+        }
+
+        #planContainer {
+            position: relative;
+            transform-origin: top left;
+        }
+
+        #planContainer img {
+            width: 100%;
+            display: block;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .pin {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 1000;
+            transform: scale(var(--pin-scale, 1));
+            transform-origin: top left;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+        }
+
+        .pin.high { background: #d71920; }
+        .pin.medium { background: #f28c00; }
+        .pin.low { background: #f4c542; }
+        .pin.very-low { background: #2e9b45; }
+        .pin.nad { background: #111; }
+        .pin.removed { background: #8b4b2a; }
+
+        .pin.matched,
+.pin.selected {
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, .2), 0 3px 8px rgba(0, 0, 0, .55);
+            z-index: 1001;
+            transform: scale(calc(var(--pin-scale, 1) * 1.35));
+        }
+
+        .pin .presumed {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            color: white;
+            font-size: 13px;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .selection-box {
+            position: absolute;
+            display: none;
+            border: 2px dashed #1769aa;
+            background: rgba(23, 105, 170, .15);
+            z-index: 900;
+            pointer-events: none;
+        }
+
+        .info {
+            width: var(--panel-width);
+            flex: 0 0 var(--panel-width);
+            position: relative;
+            padding: 20px;
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            background: white;
+            text-align: left;
+        }
+
+        .developer-link {
+            position: absolute;
+            right: 12px;
+            bottom: 10px;
+            font-size: 11px;
+            line-height: 1.2;
+            color: #1a73e8;
+            text-decoration: underline;
+            cursor: pointer;
+            user-select: none;
+            z-index: 2;
+        }
+
+        .developer-link:visited,
+        .developer-link:hover,
+        .developer-link:active,
+        .developer-link:focus {
+            color: #1a73e8;
+        }
+
+        .info h2 {
+            margin: 0 34px 18px 0;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .item-heading {
+            margin: 0 34px 16px 0;
+            font-size: 20px;
+            line-height: 1.2;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .resizer {
+            flex: 0 0 8px;
+            background: #ddd;
+            cursor: col-resize;
+            touch-action: none;
+        }
+
+        .resizer:hover,
+        .resizer.is-dragging { background: #999; }
+        body.is-resizing { cursor: col-resize; user-select: none; }
+
+        .close-button {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border: none;
+            border-radius: 6px;
+            background: #333;
+            color: white;
+            font-size: 22px;
+            line-height: 30px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+        }
+
+        .close-button:hover { background: #111; }
+
+        .filter-group { margin-bottom: 14px; }
+        .filter-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        select { max-width: 100%; }
+        #zoneSelect {
+            width: auto;
+            min-width: 120px;
+            max-width: 100%;
+            height: 32px;
+        }
+
+        .risk-checkbox-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 14px;
+            align-items: center;
+            width: 100%;
+            padding: 4px 0 0;
+        }
+        .risk-option {
+            display: inline-flex;
+            align-items: center;
+            gap: 0;
+            min-width: 0;
+            font-size: 14px;
+            font-weight: 400;
+            line-height: 1.2;
+        }
+        .risk-option input {
+            margin: 0;
+            width: 13px;
+            height: 13px;
+            flex: 0 0 auto;
+        }
+        .risk-option span {
+            white-space: nowrap;
+            display: inline-block;
+            margin-left: 8px;
+        }
+        .risk-select-all {
+            font-weight: 700;
+            margin-left: 2px;
+        }
+        .risk-select-all span {
+            font-weight: 700;
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 6px;
+        }
+
+        .matching-results {
+            margin-top: 18px;
+            padding-top: 12px;
+            border-top: 1px solid #ddd;
+            padding-bottom: 36px;
+        }
+
+        .matching-list {
+            max-height: calc(100vh - 430px);
+            min-height: 150px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+            padding-right: 4px;
+        }
+
+        .matching-item-summary {
+            padding: 10px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+
+        .matching-item-summary strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        .matching-item-summary small {
+            display: block;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        button {
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .secondary-button {
+            padding: 7px 10px;
+            border: 1px solid #888;
+            border-radius: 4px;
+            background: #f5f5f5;
+        }
+
+        .import-csv-bar {
+            margin-top: 20px;
+            padding-top: 12px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: center;
+        }
+
+        .import-csv-button {
+            width: 100%;
+            padding: 10px 12px;
+            font-weight: 700;
+        }
+
+        .capture-coordinates-bar {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+        }
+
+        .capture-coordinates-bar button {
+            width: 100%;
+            padding: 10px 12px;
+            font-weight: 700;
+        }
+
+        .capture-status {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.4;
+            min-height: 18px;
+        }
+
+        .floorplan.capture-mode {
+            cursor: crosshair;
+        }
+
+        .area-help {
+            margin: 4px 0 8px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .navigator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 16px 0;
+            padding: 8px 0;
+            border-top: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .navigator button {
+            width: 32px;
+            height: 30px;
+            padding: 0;
+        }
+
+        .navigator span { flex: 1; text-align: center; font-size: 13px; }
+        .metadata p {
+            margin: 8px 0;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .metadata hr { border: 0; border-top: 1px solid #ddd; margin: 18px 0; }
+        .metadata img { width: 100%; margin-top: 10px; }
+
+        .pin-key {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 9999;
+            width: 150px;
+            padding: 10px;
+            border-radius: 6px;
+            background: rgba(51, 51, 51, .95);
+            color: white;
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        .pin-key strong { display: block; margin-bottom: 6px; }
+        .key-row { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+        .key-swatch { width: 12px; height: 12px; border: 1px solid white; border-radius: 50%; position: relative; }
+        .key-swatch.high { background: #d71920; }
+        .key-swatch.medium { background: #f28c00; }
+        .key-swatch.low { background: #f4c542; }
+        .key-swatch.very-low { background: #2e9b45; }
+        .key-swatch.nad { background: #111; }
+        .key-swatch.removed { background: #8b4b2a; }
+        .key-swatch.presumed {
+            background: #2e9b45;
+        }
+        .key-swatch.presumed::before {
+            content: "P";
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            font-size: 8px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+        }
+
+        .zoom-controls button {
+            width: 40px;
+            height: 40px;
+            margin: 0;
+            border: none;
+            border-radius: 6px;
+            background: #333;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .zoom-controls button:hover { background: #111; }
+        .zoom-controls .fit-button { font-size: 12px; }
+    </style>
+</head>
+
+<body>
+    <div class="zoom-controls">
+        <button class="fit-button" onclick="fitAll()" title="Fit the whole plan in view">Fit</button>
+        <button onclick="zoomIn()" aria-label="Zoom in">+</button>
+        <button onclick="zoomOut()" aria-label="Zoom out">−</button>
+    </div>
+
+    <div class="pin-key" aria-label="ACM Risk Score legend">
+        <strong>ACM RISK SCORE</strong>
+        <div class="key-row"><span class="key-swatch high"></span>High risk</div>
+        <div class="key-row"><span class="key-swatch medium"></span>Medium risk</div>
+        <div class="key-row"><span class="key-swatch low"></span>Low risk</div>
+        <div class="key-row"><span class="key-swatch very-low"></span>Very low risk</div>
+        <div class="key-row"><span class="key-swatch nad"></span>NAD</div>
+        <div class="key-row"><span class="key-swatch removed"></span>Removed</div>
+        <div class="key-row"><span class="key-swatch presumed"></span>Presumed</div>
+    </div>
+
+    <div class="container">
+        <div class="floorplan" id="floorplan">
+            <div id="planContainer">
+                <img src="Plans/Lower Ground Floor_Ver15-1_160926.png" draggable="false" alt="Lower Ground Floor plan">
+                <div class="selection-box" id="selectionBox"></div>
+            </div>
+        </div>
+        <div class="resizer" id="resizer" role="separator" aria-orientation="vertical"
+            aria-label="Resize information panel" tabindex="0"></div>
+        <aside class="info" id="info">
+            <a href="#" class="developer-link" id="developerModeLink" onclick="toggleDeveloperMode(event)">Developer Mode</a>
+        </aside>
+    </div>
+
+    <script>
+        const defaultItems = [{
+            id: "39",
+            ref: "J169135",
+            title: "Franks Portlock Consulting Limited",
+            buildingId: "Trevor Square",
+            surveyType: "Re-Inspection Survey",
+            floor: "Lower Ground Floor",
+            location: "Safe Deposit Storage Box Room (281)",
+            zone: "T",
+            zoneLabel: "Z1/19",
+            itemDescription: "Presumed ACMs - no access into integrity of deposit safe linings.",
+            comments: "Unable to access due to security needed.",
+            asbestosType: "Presumed",
+            productType: "Insulating Board",
+            riskScore: "11 (Low Risk)",
+            risk: "Low",
+            status: "active",
+            presumed: true,
+            surveyContractor: "Franks Portlock Consulting Limited",
+            contractorPhone: "01277285399",
+            surveyDate: "10/06/26 - 12/06/26",
+            removed: false,
+            removalDateReference: "N/A",
+            image: "Items/J169135 ReInspection/39.png",
+            pdf: "Items/J169135%20ReInspection/J169135%20(1).pdf",
+            x: 36.33,
+            y: 25.10
+        }];
+
+        const STORAGE_KEY = "harrodsFloorPlanItems";
+
+        function loadItems() {
+            try {
+                const saved = window.localStorage.getItem(STORAGE_KEY);
+                if (!saved) return JSON.parse(JSON.stringify(defaultItems));
+                const parsed = JSON.parse(saved);
+                if (!Array.isArray(parsed) || !parsed.length) return JSON.parse(JSON.stringify(defaultItems));
+                return parsed;
+            } catch (error) {
+                return JSON.parse(JSON.stringify(defaultItems));
+            }
+        }
+
+        function persistItems() {
+            try {
+                window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+            } catch (error) {
+                // Ignore storage failures such as private browsing or quota limits.
+            }
+        }
+
+        const items = loadItems();
+
+        const riskLevels = ["High", "Medium", "Low", "Very Low", "NAD"];
+        let captureCoordinatesMode = false;
+        let lastCapturedPoint = null;
+        let developerModeEnabled = false;
+
+        function toggleDeveloperMode(event) {
+            if (event) event.preventDefault();
+            developerModeEnabled = !developerModeEnabled;
+            document.body.classList.toggle("developer-mode", developerModeEnabled);
+            const link = document.getElementById("developerModeLink");
+            if (link) {
+                link.textContent = developerModeEnabled ? "Developer Mode: On" : "Developer Mode";
+            }
+            if (selectedItemId) {
+                renderDetail(matchingItems(), directPinSelection);
+            } else {
+                renderFilterShell();
+            }
+        }
+
+        function developerControlsMarkup() {
+            if (!developerModeEnabled) return "";
+            return "<div class='capture-coordinates-bar'>" +
+                "<button class='secondary-button' type='button' onclick='toggleCaptureCoordinatesMode()'>Capture pin XY</button>" +
+                "<div id='captureCoordStatus' class='capture-status'>" + (lastCapturedPoint ? "Last captured: X " + lastCapturedPoint.x + ", Y " + lastCapturedPoint.y : "Ready to capture a pin position.") + "</div>" +
+                "</div>" +
+                "<div class='import-csv-bar'>" +
+                "<input id='csvImportInput' type='file' accept='.csv,text/csv' onchange='handleCsvFileSelection(this.files)' hidden />" +
+                "<button class='secondary-button import-csv-button' type='button' onclick=\"document.getElementById('csvImportInput').click()\">Import CSV</button>" +
+                "</div>";
+        }
+
+        function toggleCaptureCoordinatesMode() {
+            captureCoordinatesMode = !captureCoordinatesMode;
+            floorplan.classList.toggle("capture-mode", captureCoordinatesMode);
+            const status = document.getElementById("captureCoordStatus");
+            if (status) {
+                status.textContent = captureCoordinatesMode ? "Click on the plan to capture exact x/y values." : (lastCapturedPoint ? "Last captured: X " + lastCapturedPoint.x + ", Y " + lastCapturedPoint.y : "Ready to capture a pin position.");
+            }
+        }
+
+        function capturePointFromEvent(event) {
+            const rect = planImage.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / rect.width) * 100;
+            const y = ((event.clientY - rect.top) / rect.height) * 100;
+            const point = {
+                x: Number(x.toFixed(2)),
+                y: Number(y.toFixed(2))
+            };
+            lastCapturedPoint = point;
+            captureCoordinatesMode = false;
+            floorplan.classList.remove("capture-mode");
+            const status = document.getElementById("captureCoordStatus");
+            if (status) {
+                status.textContent = "Captured: X " + point.x + ", Y " + point.y + " (copy into CSV).";
+            }
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(point.x + "," + point.y);
+                }
+            } catch (error) {
+                // Clipboard access is optional; output remains visible on screen.
+            }
+            window.alert("Captured pin coordinates\nX = " + point.x + "\nY = " + point.y + "\n\nUse these values in the CSV x and y columns.");
+        }
+
+        function parseCsv(csvText) {
+            const rows = [];
+            let currentRow = [];
+            let currentValue = "";
+            let inQuotes = false;
+
+            for (let i = 0; i < csvText.length; i++) {
+                const char = csvText[i];
+                const next = csvText[i + 1];
+
+                if (char === '"') {
+                    if (inQuotes && next === '"') {
+                        currentValue += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    currentRow.push(currentValue);
+                    currentValue = "";
+                } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                    if (char === '\r' && next === '\n') i++;
+                    currentRow.push(currentValue);
+                    if (currentRow.some(function (cell) { return String(cell).trim() !== ""; })) {
+                        rows.push(currentRow);
+                    }
+                    currentRow = [];
+                    currentValue = "";
+                } else {
+                    currentValue += char;
+                }
+            }
+
+            if (currentValue.length || currentRow.length) {
+                currentRow.push(currentValue);
+                if (currentRow.some(function (cell) { return String(cell).trim() !== ""; })) {
+                    rows.push(currentRow);
+                }
+            }
+
+            return rows;
+        }
+
+        function normalizeRisk(value) {
+            const raw = String(value || '').trim();
+            const v = raw.toLowerCase();
+            if (v.indexOf('high') !== -1) return 'High';
+            if (v.indexOf('medium') !== -1) return 'Medium';
+            if (v.indexOf('very low') !== -1) return 'Very Low';
+            if (v.indexOf('low') !== -1) return 'Low';
+            if (v.indexOf('nad') !== -1 || v.indexOf('not') !== -1) return 'NAD';
+            return 'Low';
+        }
+
+        function parseBoolean(value) {
+            return String(value || '').trim().toLowerCase() === 'true';
+        }
+
+        function clampPercentage(value, fallback) {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) return fallback;
+            return Math.min(100, Math.max(0, numeric));
+        }
+
+        function csvToItem(row, headers) {
+            const record = {};
+            headers.forEach(function (header, index) {
+                record[header] = row[index] !== undefined ? row[index] : '';
+            });
+
+            const xValue = clampPercentage(record.x, 0);
+            const yValue = clampPercentage(record.y, 0);
+
+            const item = {
+                id: String(record.id || '').trim(),
+                ref: String(record.ref || '').trim(),
+                title: String(record.title || '').trim(),
+                buildingId: String(record.buildingId || '').trim(),
+                surveyType: String(record.surveyType || '').trim(),
+                floor: String(record.floor || '').trim(),
+                location: String(record.location || '').trim(),
+                zone: String(record.zone || '').trim(),
+                zoneLabel: String(record.zoneLabel || '').trim(),
+                itemDescription: String(record.itemDescription || '').trim(),
+                comments: String(record.comments || '').trim(),
+                asbestosType: String(record.asbestosType || '').trim(),
+                productType: String(record.productType || '').trim(),
+                riskScore: String(record.riskScore || '').trim(),
+                risk: normalizeRisk(record.risk || record.riskScore),
+                status: parseBoolean(record.removed) ? 'removed' : 'active',
+                presumed: parseBoolean(record.presumed),
+                surveyContractor: String(record.surveyContractor || '').trim(),
+                contractorPhone: String(record.contractorPhone || '').trim(),
+                surveyDate: String(record.surveyDate || '').trim(),
+                removed: parseBoolean(record.removed),
+                removalDateReference: String(record.removalDateReference || '').trim(),
+                image: String(record.image || '').trim(),
+                pdf: String(record.pdf || '').trim(),
+                x: xValue,
+                y: yValue
+            };
+
+            if (!item.riskScore && item.risk) item.riskScore = item.risk;
+            return item;
+        }
+
+        function importCsvItems(csvText) {
+            const parsed = parseCsv(csvText);
+            if (parsed.length < 2) {
+                throw new Error('CSV must include a header row and at least one item row.');
+            }
+
+            const headers = parsed[0].map(function (header) {
+                return String(header).trim();
+            });
+
+            const imported = parsed.slice(1).map(function (row) {
+                return csvToItem(row, headers);
+            }).filter(function (row) {
+                return String(row.id || '').trim() !== ''; 
+            });
+
+            if (!imported.length) {
+                throw new Error('No valid item rows were found in the CSV.');
+            }
+
+            const existing = items.slice();
+            const merged = existing.filter(function (item) {
+                return !imported.some(function (candidate) { return String(candidate.id) === String(item.id); });
+            });
+
+            items.splice(0, items.length, ...merged.concat(imported));
+            persistItems();
+            renderPins();
+            renderFilterShell();
+            return items;
+        }
+
+        function handleCsvFileSelection(files) {
+            const file = files && files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function () {
+                try {
+                    importCsvItems(String(reader.result || ''));
+                } catch (error) {
+                    window.alert(error.message || 'Unable to import CSV.');
+                }
+            };
+            reader.onerror = function () {
+                window.alert('Unable to read the CSV file.');
+            };
+            reader.readAsText(file);
+
+            const input = document.getElementById('csvImportInput');
+            if (input) input.value = '';
+        }
+
+        window.importCsvItems = importCsvItems;
+        window.handleCsvFileSelection = handleCsvFileSelection;
+
+        let zoomLevel = 1;
+        let selectedItemId = null;
+        let directPinSelection = false;
+        let selectedZoneFilter = "all";
+        let selectedRiskFilters = [];
+        let areaSelectionEnabled = false;
+        let areaStart = null;
+        let panStartX;
+        let panStartY;
+        let initialScrollLeft;
+        let initialScrollTop;
+
+        const root = document.documentElement;
+        const resizer = document.getElementById("resizer");
+        const infoPanel = document.getElementById("info");
+        const layout = document.querySelector(".container");
+        const floorplan = document.getElementById("floorplan");
+        const planContainer = document.getElementById("planContainer");
+        const planImage = planContainer.querySelector("img");
+        const selectionBox = document.getElementById("selectionBox");
+
+        function riskClass(item) {
+            if (item.status === "removed") return "removed";
+            return String(item.risk || "Low").toLowerCase().replace(/\s+/g, '-');
+        }
+
+        function renderPins() {
+            planContainer.querySelectorAll(".pin").forEach(function (pin) { pin.remove(); });
+            items.forEach(function (item) {
+                const pin = document.createElement("button");
+                pin.className = "pin " + riskClass(item);
+                pin.id = "pin-" + item.id;
+                pin.type = "button";
+                pin.dataset.zone = item.zone;
+                pin.dataset.itemId = item.id;
+                pin.style.top = item.y + "%";
+                pin.style.left = item.x + "%";
+                pin.title = "Item " + item.id + " - " + item.riskScore;
+                pin.setAttribute("aria-label", "Item " + item.id);
+                if (item.presumed) {
+                    pin.innerHTML = "<span class='presumed' aria-hidden='true'>P</span>";
+                }
+                pin.addEventListener("click", function (event) {
+                    event.stopPropagation();
+                    selectItem(item.id, true);
+                });
+                planContainer.appendChild(pin);
+            });
+            updateZoom();
+        }
+
+        function selectedRisks() {
+            const filter = document.getElementById("riskFilter");
+            if (!filter) return selectedRiskFilters.slice();
+            return Array.from(filter.querySelectorAll("input[type='checkbox']"))
+                .filter(function (input) {
+                    return input.checked && riskLevels.indexOf(input.value) !== -1;
+                })
+                .map(function (input) { return input.value; });
+        }
+
+        function itemRiskMatches(item, risks) {
+            if (!risks.length || risks.length === riskLevels.length) return true;
+            const normalizedRisk = normalizeRisk(item.risk || item.riskScore || '');
+            return risks.some(function (risk) {
+                const target = normalizeRisk(risk);
+                return normalizedRisk === target;
+            });
+        }
+
+        function syncRiskSelectAll() {
+            const filter = document.getElementById("riskFilter");
+            if (!filter) return;
+            selectedRiskFilters = selectedRisks();
+        }
+
+        function matchingItems() {
+            const zone = document.getElementById("zoneSelect");
+            const activeZone = selectedZoneFilter !== "all" ? selectedZoneFilter : (zone ? zone.value : "all");
+            const risks = selectedRisks();
+            return items.filter(function (item) {
+                return (activeZone === "all" || item.zone === activeZone) && itemRiskMatches(item, risks);
+            });
+        }
+
+        function applyFilters() {
+            const matches = matchingItems();
+            items.forEach(function (item) {
+                const pin = document.getElementById("pin-" + item.id);
+                if (pin) pin.hidden = matches.indexOf(item) === -1;
+            });
+            if (selectedItemId && matches.every(function (item) { return item.id !== selectedItemId; })) {
+                selectedItemId = null;
+            }
+            updateSelectedPin();
+            updateNavigator(matches);
+            if (selectedItemId) renderDetail(matches);
+        }
+
+        function updateSelectedPin() {
+            const isFilterActive = filtersAreActive();
+            const fullDisplayState = allZonesAndAllRiskSelected();
+            const matches = (isFilterActive || fullDisplayState) ? matchingItems() : [];
+            const matchIds = matches.map(function (item) { return item.id; });
+            planContainer.querySelectorAll(".pin").forEach(function (pin) {
+                const itemId = pin.dataset.itemId;
+                const isSelected = !!selectedItemId && itemId === selectedItemId;
+                const isMatched = (isFilterActive || fullDisplayState) && !isSelected && matchIds.indexOf(itemId) !== -1 && !selectedItemId;
+                pin.classList.toggle("selected", isSelected);
+                pin.classList.toggle("matched", isMatched);
+                if (!selectedItemId && !isFilterActive && !fullDisplayState) {
+                    pin.classList.remove("selected");
+                    pin.classList.remove("matched");
+                }
+            });
+        }
+
+        function renderFilterShell() {
+            if (selectedItemId) {
+                const matches = matchingItems();
+                const selected = items.find(function (item) { return item.id === selectedItemId; });
+                if (selected && matches.indexOf(selected) !== -1) {
+                    applyFilters();
+                    updateSelectedPin();
+                    renderDetail(matches, directPinSelection);
+                    return;
+                }
+                selectedItemId = null;
+                directPinSelection = false;
+            }
+
+            const zones = items.filter(function (item, index, array) {
+                return array.findIndex(function (candidate) { return candidate.zone === item.zone; }) === index;
+            });
+
+            const zoneOptionsHtml = [
+                "<option value='all'" + (selectedZoneFilter === "all" ? " selected" : "") + ">All zones</option>"
+            ].concat(zones.map(function (item) {
+                return "<option value='" + item.zone + "'" + (item.zone === selectedZoneFilter ? " selected" : "") + ">" + item.zone + "</option>";
+            })).join("");
+
+            const riskOptionsHtml = riskLevels.map(function (level) {
+                const checked = selectedRiskFilters.indexOf(level) !== -1 ? " checked" : "";
+                return "<label class='risk-option'><input type='checkbox' value='" + level + "' onchange='filterChanged()'" + checked + "><span>" + level + "</span></label>";
+            }).join("");
+
+            const matches = matchingItems();
+            const landingListHtml = landingMatchMarkup(matches);
+
+            infoPanel.innerHTML =
+                "<button class='close-button' type='button' aria-label='Close item details' onclick='resetToLanding()'>&times;</button>" +
+                "<h2>SELECT ITEM ON MAP OR USE THE BELOW FILTERS</h2>" +
+                "<div class='filter-group'><label for='zoneSelect'>Zone:</label>" +
+                "<select id='zoneSelect' onchange='filterChanged()'>" +
+                zoneOptionsHtml +
+                "</select></div>" +
+                "<div class='filter-group'><label>ACM Risk Score:</label><div class='risk-checkbox-list' id='riskFilter'>" + riskOptionsHtml + "</div></div>" +
+                landingListHtml +
+                developerControlsMarkup() +
+                "<a href='#' class='developer-link' id='developerModeLink' onclick='toggleDeveloperMode(event)'>" + (developerModeEnabled ? "Developer Mode: On" : "Developer Mode") + "</a>";
+            applyFilters();
+        }
+
+        function filtersAreActive() {
+            const hasZoneFilter = selectedZoneFilter !== "all";
+            const hasRiskSubset = selectedRiskFilters.length > 0 && selectedRiskFilters.length < riskLevels.length;
+            return hasZoneFilter || hasRiskSubset;
+        }
+
+        function allZonesAndAllRiskSelected() {
+            const zone = document.getElementById("zoneSelect");
+            const zoneValue = selectedZoneFilter !== "all" ? selectedZoneFilter : (zone ? zone.value : "all");
+            return zoneValue === "all" && selectedRiskFilters.length === riskLevels.length;
+        }
+
+        function landingMatchMarkup(matches) {
+            if (!filtersAreActive() && !allZonesAndAllRiskSelected()) return "";
+            if (!matches.length) {
+                return "<div class='matching-results'><div class='navigator'><span>0 matching items</span></div></div>";
+            }
+
+            const countText = matches.length + " matching item" + (matches.length === 1 ? "" : "s");
+            const itemsHtml = matches.map(function (item, index) {
+                return "<div class='matching-item-summary' onclick='selectItem(\"" + item.id + "\")' style='cursor:pointer;'>" +
+                    "<strong>" + (index + 1) + " of " + matches.length + " - ITEM " + item.id + " / " + item.ref + " / " + item.title + "</strong>" +
+                    "<small><b>Asbestos Type:</b> " + item.asbestosType + "<br>" +
+                    "<b>Item Description:</b> " + item.itemDescription + "<br>" +
+                    "<b>Product Type:</b> " + item.productType + "</small>" +
+                    "</div>";
+            }).join("");
+
+            return "<div class='matching-results'>" +
+                "<div class='navigator'><span>" + matches.length + " matching item" + (matches.length === 1 ? "" : "s") + "</span></div>" +
+                "<div class='matching-list'>" + itemsHtml + "</div>" +
+                "</div>";
+        }
+
+        function updateNavigator(matches) {
+            const host = document.getElementById("navigatorHost");
+            if (!host) return;
+            const currentIndex = selectedItemId ? matches.findIndex(function (item) { return item.id === selectedItemId; }) : -1;
+            const position = currentIndex >= 0 ? currentIndex + 1 : 0;
+            host.innerHTML = "<div class='navigator'><button type='button' " + (position <= 1 ? "disabled" : "") +
+                " onclick='navigateItem(-1)' aria-label='Previous matching item'>&larr;</button><span>" +
+                (matches.length ? position + " of " + matches.length + " matching item" + (matches.length === 1 ? "" : "s") : "0 matching items") +
+                "</span><button type='button' " + (!matches.length || position >= matches.length ? "disabled" : "") +
+                " onclick='navigateItem(1)' aria-label='Next matching item'>&rarr;</button></div>";
+        }
+
+        function renderDetail(matches, isPinSelection) {
+            const item = items.find(function (candidate) { return candidate.id === selectedItemId; });
+            if (!item) return;
+
+            const currentIndex = matches.findIndex(function (candidate) { return candidate.id === item.id; });
+            const currentPosition = currentIndex >= 0 ? currentIndex + 1 : 1;
+            const totalMatches = matches.length || 1;
+            const navigatorHtml = isPinSelection ? "" :
+                "<div class='navigator'><button type='button' " + (currentPosition <= 1 ? "disabled" : "") + " onclick='navigateItem(-1)' aria-label='Previous matching item'>&larr;</button><span>" +
+                currentPosition + " of " + totalMatches + " matching item" + (totalMatches === 1 ? "" : "s") +
+                "</span><button type='button' " + (currentPosition >= totalMatches ? "disabled" : "") + " onclick='navigateItem(1)' aria-label='Next matching item'>&rarr;</button></div>";
+
+            infoPanel.innerHTML =
+                "<button class='close-button' type='button' aria-label='Close item details' onclick='resetToLanding()'>&times;</button>" +
+                "<h2 class='item-heading'>ITEM " + item.id + " / " + item.ref + " / " + item.title + "</h2>" +
+                navigatorHtml +
+                "<div class='metadata'>" +
+                "<hr>" +
+                "<p><b>Building ID:</b> " + item.buildingId + "</p>" +
+                "<p><b>Floor:</b> " + item.floor + "</p>" +
+                "<p><b>Zone:</b> " + item.zone + "</p>" +
+                "<p><b>Location:</b> " + item.location + "</p>" +
+                "<p><b>Room Reference:</b> " + item.zoneLabel + "</p>" +
+                "<p><b>Item Description:</b> " + item.itemDescription + "</p>" +
+                "<p><b>Comments:</b> " + item.comments + "</p>" +
+                "<p><b>Asbestos Type:</b> " + item.asbestosType + "</p>" +
+                "<p><b>Product Type:</b> " + item.productType + "</p>" +
+                "<p><b>Risk Score:</b> " + item.riskScore + "</p>" +
+                "<p><b>Survey Type:</b> " + item.surveyType + "</p>" +
+                "<p><b>Survey Contractor:</b> " + item.surveyContractor + " (" + item.contractorPhone + ")</p>" +
+                "<p><b>Survey Date:</b> " + item.surveyDate + "</p>" +
+                "<p><label><b>Removed:</b> <input type='checkbox' " + (item.removed ? "checked " : "") + "disabled></label></p>" +
+                "<p><b>Removal Date &amp; Reference:</b> " + item.removalDateReference + "</p><hr>" +
+                "<p><b>Webpage:</b> <a href='https://adoddleak.asite.com/adoddle/documents?action_id=1' target='_blank' rel='noopener'>Open Asite</a></p>" +
+                "<p><b>PDF Report:</b> <a href='" + item.pdf + "' target='_blank' rel='noopener' download='J169135 (1).pdf'>Download PDF</a></p>" +
+                "<hr>" +
+                "<p><b>Photograph</b></p><img src='" + item.image + "' alt='Item " + item.id + " photograph'></div>" +
+                developerControlsMarkup() +
+                "<a href='#' class='developer-link' id='developerModeLink' onclick='toggleDeveloperMode(event)'>" + (developerModeEnabled ? "Developer Mode: On" : "Developer Mode") + "</a>";
+        }
+
+        function filterChanged() {
+            const zone = document.getElementById("zoneSelect");
+            selectedZoneFilter = zone ? zone.value : "all";
+            syncRiskSelectAll();
+            const matches = matchingItems();
+            if (selectedItemId && matches.every(function (item) { return item.id !== selectedItemId; })) selectedItemId = null;
+            renderFilterShell();
+        }
+
+        function toggleSelectAllRisks(checked) {
+            const filter = document.getElementById("riskFilter");
+            if (!filter) return;
+            Array.from(filter.querySelectorAll("input[type='checkbox']")).forEach(function (input) {
+                if (input.id !== "riskSelectAll" && ["High", "Medium", "Low"].indexOf(input.value) !== -1) input.checked = checked;
+            });
+            filterChanged();
+        }
+
+        function selectAllRisks() {
+            toggleSelectAllRisks(true);
+        }
+
+        function selectItem(itemId, fromPin) {
+            const item = items.find(function (candidate) { return candidate.id === itemId; });
+            selectedItemId = itemId;
+            directPinSelection = !!fromPin;
+            areaSelectionEnabled = false;
+            renderFilterShell();
+        }
+
+        function navigateItem(direction) {
+            const matches = matchingItems();
+            if (!matches.length) return;
+            let index = matches.findIndex(function (item) { return item.id === selectedItemId; });
+            index = index < 0 ? (direction > 0 ? 0 : matches.length - 1) : index + direction;
+            if (index >= 0 && index < matches.length) selectItem(matches[index].id);
+        }
+
+        function resetToLanding() {
+            selectedItemId = null;
+            directPinSelection = false;
+            selectedZoneFilter = "all";
+            selectedRiskFilters = [];
+            areaSelectionEnabled = false;
+            selectionBox.style.display = "none";
+            renderFilterShell();
+        }
+
+        function toggleAreaSelection() {
+            if (selectedItemId) return;
+            areaSelectionEnabled = !areaSelectionEnabled;
+            selectionBox.style.display = "none";
+            renderFilterShell();
+        }
+
+        function updateZoom() {
+            planContainer.style.transform = "scale(" + zoomLevel + ")";
+            floorplan.classList.toggle("can-pan", zoomLevel > 1 && !areaSelectionEnabled);
+            const pinScale = 1 / Math.max(1, zoomLevel);
+            planContainer.querySelectorAll(".pin").forEach(function (pin) {
+                pin.style.setProperty("--pin-scale", pinScale);
+            });
+        }
+
+        function selectZone(zone) {
+            const select = document.getElementById("zoneSelect");
+            if (select) select.value = zone;
+            filterChanged();
+        }
+
+        function fitAll() {
+            const baseWidth = floorplan.clientWidth;
+            const baseHeight = baseWidth * planImage.naturalHeight / planImage.naturalWidth;
+            zoomLevel = Math.min(1, floorplan.clientHeight / baseHeight);
+            updateZoom();
+            floorplan.scrollLeft = 0;
+            floorplan.scrollTop = 0;
+        }
+
+        function zoomIn() { zoomLevel += .2; updateZoom(); }
+        function zoomOut() { zoomLevel = Math.max(.5, zoomLevel - .2); updateZoom(); }
+
+        function pinInRectangle(pin, rectangle) {
+            const bounds = pin.getBoundingClientRect();
+            return bounds.left >= rectangle.left && bounds.right <= rectangle.right &&
+                bounds.top >= rectangle.top && bounds.bottom <= rectangle.bottom;
+        }
+
+        function areaRectangle() {
+            const first = { x: Math.min(areaStart.x, areaStart.currentX), y: Math.min(areaStart.y, areaStart.currentY) };
+            const second = { x: Math.max(areaStart.x, areaStart.currentX), y: Math.max(areaStart.y, areaStart.currentY) };
+            return { left: first.x, top: first.y, right: second.x, bottom: second.y };
+        }
+
+        floorplan.addEventListener("pointerdown", function (event) {
+            if (captureCoordinatesMode) {
+                event.preventDefault();
+                capturePointFromEvent(event);
+                return;
+            }
+            if (areaSelectionEnabled && !event.target.closest(".pin")) {
+                event.preventDefault();
+                areaStart = { x: event.clientX, y: event.clientY, currentX: event.clientX, currentY: event.clientY };
+                floorplan.setPointerCapture(event.pointerId);
+                selectionBox.style.display = "block";
+                return;
+            }
+            if (zoomLevel <= 1 || event.target.closest(".pin") || areaSelectionEnabled) return;
+            event.preventDefault();
+            panStartX = event.clientX;
+            panStartY = event.clientY;
+            initialScrollLeft = floorplan.scrollLeft;
+            initialScrollTop = floorplan.scrollTop;
+            floorplan.setPointerCapture(event.pointerId);
+            floorplan.classList.add("is-panning");
+        });
+
+        floorplan.addEventListener("pointermove", function (event) {
+            if (areaStart && floorplan.hasPointerCapture(event.pointerId)) {
+                areaStart.currentX = event.clientX;
+                areaStart.currentY = event.clientY;
+                const bounds = floorplan.getBoundingClientRect();
+                const left = Math.min(areaStart.x, areaStart.currentX) - bounds.left + floorplan.scrollLeft;
+                const top = Math.min(areaStart.y, areaStart.currentY) - bounds.top + floorplan.scrollTop;
+                selectionBox.style.left = left + "px";
+                selectionBox.style.top = top + "px";
+                selectionBox.style.width = Math.abs(areaStart.currentX - areaStart.x) + "px";
+                selectionBox.style.height = Math.abs(areaStart.currentY - areaStart.y) + "px";
+                return;
+            }
+            if (floorplan.hasPointerCapture(event.pointerId) && !areaSelectionEnabled) {
+                floorplan.scrollLeft = initialScrollLeft - (event.clientX - panStartX);
+                floorplan.scrollTop = initialScrollTop - (event.clientY - panStartY);
+            }
+        });
+
+        function stopPointerAction(event) {
+            if (!floorplan.hasPointerCapture(event.pointerId)) return;
+            if (areaStart) {
+                const rectangle = areaRectangle();
+                const matches = matchingItems();
+                const selected = items.find(function (item) {
+                    const pin = document.getElementById("pin-" + item.id);
+                    return matches.indexOf(item) !== -1 && pin && pinInRectangle(pin, rectangle);
+                });
+                areaStart = null;
+                floorplan.releasePointerCapture(event.pointerId);
+                selectionBox.style.display = "none";
+                if (selected) selectItem(selected.id);
+            } else {
+                floorplan.releasePointerCapture(event.pointerId);
+                floorplan.classList.remove("is-panning");
+            }
+        }
+
+        floorplan.addEventListener("pointerup", stopPointerAction);
+        floorplan.addEventListener("pointercancel", stopPointerAction);
+
+        resizer.addEventListener("pointerdown", function (event) {
+            resizer.setPointerCapture(event.pointerId);
+            resizer.classList.add("is-dragging");
+            document.body.classList.add("is-resizing");
+        });
+        resizer.addEventListener("pointermove", function (event) {
+            if (!resizer.hasPointerCapture(event.pointerId)) return;
+            const bounds = layout.getBoundingClientRect();
+            const width = Math.min(bounds.width * .7, Math.max(260, bounds.right - event.clientX));
+            root.style.setProperty("--panel-width", width + "px");
+        });
+        function stopResizing(event) {
+            if (!resizer.hasPointerCapture(event.pointerId)) return;
+            resizer.releasePointerCapture(event.pointerId);
+            resizer.classList.remove("is-dragging");
+            document.body.classList.remove("is-resizing");
+        }
+        resizer.addEventListener("pointerup", stopResizing);
+        resizer.addEventListener("pointercancel", stopResizing);
+
+        renderPins();
+        renderFilterShell();
+    </script>
+</body>
+
+</html>
