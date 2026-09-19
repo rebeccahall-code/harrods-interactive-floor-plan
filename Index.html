@@ -413,8 +413,7 @@
             top: 20px;
             left: 20px;
             z-index: 9999;
-            width: fit-content;
-            max-width: min(220px, calc(100vw - 26px));
+            width: 150px;
             padding: 10px;
             border-radius: 6px;
             background: rgba(51, 51, 51, .95);
@@ -512,11 +511,9 @@
             }
 
             .pin-key {
+                width: 180px;
                 top: 12px;
-                right: 12px;
-                left: auto;
-                width: fit-content;
-                max-width: min(210px, calc(100vw - 120px));
+                left: 12px;
             }
 
             .zoom-controls {
@@ -530,13 +527,9 @@
 
         @media (max-width: 640px) {
             .pin-key {
-                position: absolute;
-                top: 12px;
-                right: 12px;
-                left: auto;
-                width: fit-content;
-                max-width: min(180px, calc(100vw - 110px));
-                margin: 0;
+                position: static;
+                width: auto;
+                margin: 12px;
             }
 
             .container {
@@ -582,7 +575,7 @@
     </div>
 
     <div class="pin-key" aria-label="ACM Risk Score legend">
-        <strong>ACM RISK SCORE</strong>
+        <strong>KEY</strong>
         <div class="key-row"><span class="key-swatch high"></span>High risk</div>
         <div class="key-row"><span class="key-swatch medium"></span>Medium risk</div>
         <div class="key-row"><span class="key-swatch low"></span>Low risk</div>
@@ -678,8 +671,6 @@
                 item.images = item.images && item.images.length ? item.images : (item.image ? [item.image] : []);
             }
 
-            item.zone = normalizeZone(item.zone);
-
             item.currentImageIndex = Number.isFinite(Number(item.currentImageIndex)) ? Number(item.currentImageIndex) : 0;
             if (item.images.length) {
                 const safeIndex = ((item.currentImageIndex % item.images.length) + item.images.length) % item.images.length;
@@ -733,6 +724,8 @@
         }
 
         function loadItems() {
+            const csvItems = loadItemsFromCsv();
+            if (csvItems && csvItems.length) return csvItems;
             const storedItems = loadItemsFromStorage();
             if (storedItems.length) return storedItems;
             return getFallbackItems();
@@ -749,6 +742,15 @@
         let items = [];
 
         async function initializeItems() {
+            const csvItems = await loadItemsFromCsv();
+            if (csvItems.length) {
+                items = csvItems;
+                persistItems();
+                renderPins();
+                renderFilterShell();
+                return;
+            }
+
             const storedItems = loadItemsFromStorage();
             if (storedItems.length) {
                 items = storedItems;
@@ -757,16 +759,33 @@
                 return;
             }
 
-            const csvItems = await loadItemsFromCsv();
-            items = csvItems.length ? csvItems : getFallbackItems();
-            if (csvItems.length) {
-                persistItems();
-            }
+            items = getFallbackItems();
             renderPins();
             renderFilterShell();
         }
 
-        const riskLevels = ["High", "Medium", "Low", "Very Low", "NAD"];
+        function getRiskLevels() {
+            const levels = [];
+            items.forEach(function (item) {
+                const normalized = normalizeRisk(item.risk || item.riskScore || '');
+                if (!normalized || normalized === 'Removed') return;
+                if (levels.indexOf(normalized) === -1) levels.push(normalized);
+            });
+
+            if (!levels.length) {
+                return ["High", "Medium", "Low", "Very Low", "NAD"];
+            }
+
+            const preferredOrder = ["High", "Medium", "Low", "Very Low", "NAD"];
+            const ordered = preferredOrder.filter(function (level) {
+                return levels.indexOf(level) !== -1;
+            });
+            levels.forEach(function (level) {
+                if (ordered.indexOf(level) === -1) ordered.push(level);
+            });
+            return ordered;
+        }
+
         let captureCoordinatesMode = false;
         let lastCapturedPoint = null;
         let developerModeEnabled = false;
@@ -878,6 +897,7 @@
         function normalizeRisk(value) {
             const raw = String(value || '').trim();
             const v = raw.toLowerCase();
+            if (v.indexOf('removed') !== -1) return 'Removed';
             if (v.indexOf('high') !== -1) return 'High';
             if (v.indexOf('medium') !== -1) return 'Medium';
             if (v.indexOf('very low') !== -1) return 'Very Low';
@@ -888,11 +908,6 @@
 
         function parseBoolean(value) {
             return String(value || '').trim().toLowerCase() === 'true';
-        }
-
-        function normalizeZone(value) {
-            const raw = String(value ?? '').trim();
-            return raw || 'Unknown';
         }
 
         function clampPercentage(value, fallback) {
@@ -942,7 +957,7 @@
                 surveyType: String(record.surveyType || '').trim(),
                 floor: String(record.floor || '').trim(),
                 location: String(record.location || '').trim(),
-                zone: normalizeZone(record.zone),
+                zone: String(record.zone || '').trim(),
                 zoneLabel: String(record.zoneLabel || '').trim(),
                 itemDescription: String(record.itemDescription || '').trim(),
                 comments: String(record.comments || '').trim(),
@@ -1056,16 +1071,17 @@
         function renderPins() {
             planContainer.querySelectorAll(".pin").forEach(function (pin) { pin.remove(); });
 
+            const visibleMatches = filtersAreActive() ? matchingItems() : items.slice();
+            const visibleItemIds = new Set(visibleMatches.map(function (item) { return String(item.id); }));
             const groupedPositions = {};
-            items.forEach(function (item) {
+
+            visibleMatches.forEach(function (item) {
                 const key = item.x.toFixed(2) + "|" + item.y.toFixed(2);
                 if (!groupedPositions[key]) groupedPositions[key] = [];
                 groupedPositions[key].push(item);
             });
 
             items.forEach(function (item) {
-                const key = item.x.toFixed(2) + "|" + item.y.toFixed(2);
-                const group = groupedPositions[key] || [];
                 const pin = document.createElement("button");
                 pin.className = "pin " + riskClass(item);
                 pin.id = "pin-" + item.id;
@@ -1079,40 +1095,47 @@
                 if (item.presumed) {
                     pin.innerHTML = "<span class='presumed' aria-hidden='true'>P</span>";
                 }
+                pin.hidden = !visibleItemIds.has(String(item.id));
                 pin.addEventListener("click", function (event) {
                     event.stopPropagation();
                     selectItem(item.id, true);
                 });
                 planContainer.appendChild(pin);
-
-                if (group.length > 1 && !document.getElementById("pin-cluster-" + key)) {
-                    const clusterPin = document.createElement("button");
-                    clusterPin.className = "pin cluster";
-                    clusterPin.id = "pin-cluster-" + key;
-                    clusterPin.type = "button";
-                    clusterPin.dataset.zone = item.zone;
-                    clusterPin.dataset.itemIds = group.map(function (entry) { return entry.id; }).join(",");
-                    clusterPin.style.top = item.y + "%";
-                    clusterPin.style.left = item.x + "%";
-                    clusterPin.title = group.length + " items at this location";
-                    clusterPin.setAttribute("aria-label", group.length + " items at this location");
-                    clusterPin.innerHTML = "<span class='cluster-count'>" + group.length + "</span>";
-                    clusterPin.addEventListener("click", function (event) {
-                        event.stopPropagation();
-                        if (group.length) showClusterItems(group);
-                    });
-                    planContainer.appendChild(clusterPin);
-                }
             });
+
+            Object.keys(groupedPositions).forEach(function (key) {
+                const group = groupedPositions[key];
+                if (group.length <= 1) return;
+
+                const anchor = group[0];
+                const clusterPin = document.createElement("button");
+                clusterPin.className = "pin cluster";
+                clusterPin.id = "pin-cluster-" + key;
+                clusterPin.type = "button";
+                clusterPin.dataset.zone = anchor.zone;
+                clusterPin.dataset.itemIds = group.map(function (entry) { return entry.id; }).join(",");
+                clusterPin.style.top = anchor.y + "%";
+                clusterPin.style.left = anchor.x + "%";
+                clusterPin.title = group.length + " items at this location";
+                clusterPin.setAttribute("aria-label", group.length + " items at this location");
+                clusterPin.innerHTML = "<span class='cluster-count'>" + group.length + "</span>";
+                clusterPin.addEventListener("click", function (event) {
+                    event.stopPropagation();
+                    if (group.length) showClusterItems(group);
+                });
+                planContainer.appendChild(clusterPin);
+            });
+
             updateZoom();
         }
 
         function selectedRisks() {
             const filter = document.getElementById("riskFilter");
             if (!filter) return selectedRiskFilters.slice();
+            const levels = getRiskLevels();
             return Array.from(filter.querySelectorAll("input[type='checkbox']"))
                 .filter(function (input) {
-                    return input.checked && riskLevels.indexOf(input.value) !== -1;
+                    return input.checked && levels.indexOf(input.value) !== -1;
                 })
                 .map(function (input) { return input.value; });
         }
@@ -1124,20 +1147,36 @@
 
         function itemRiskMatches(item, risks) {
             const removedSelected = selectedRemovedStatus();
-            if (removedSelected && item.status === "removed") return true;
-            if (!risks.length) return removedSelected ? item.status === "removed" : true;
-            if (risks.length === riskLevels.length) return true;
             const normalizedRisk = normalizeRisk(item.risk || item.riskScore || '');
-            return risks.some(function (risk) {
+            const isRemovedItem = !!(item && (item.removed || item.status === 'removed' || normalizedRisk === 'Removed'));
+
+            if (!risks.length) {
+                return removedSelected ? isRemovedItem : true;
+            }
+
+            if (isRemovedItem && !removedSelected) {
+                return false;
+            }
+
+            if (risks.length === getRiskLevels().length) {
+                return removedSelected ? true : !isRemovedItem;
+            }
+
+            const riskMatch = risks.some(function (risk) {
                 const target = normalizeRisk(risk);
                 return normalizedRisk === target;
             });
+
+            return removedSelected ? (riskMatch || isRemovedItem) : riskMatch;
         }
 
         function syncRiskSelectAll() {
             const filter = document.getElementById("riskFilter");
             if (!filter) return;
-            selectedRiskFilters = selectedRisks();
+            const levels = getRiskLevels();
+            selectedRiskFilters = selectedRisks().filter(function (level) {
+                return levels.indexOf(level) !== -1;
+            });
             selectedRemovedFilter = selectedRemovedStatus();
         }
 
@@ -1196,14 +1235,11 @@
                 directPinSelection = false;
             }
 
-            const zones = items
-                .map(function (item) { return normalizeZone(item.zone); })
-                .filter(function (zone, index, array) { return array.indexOf(zone) === index; })
-                .sort(function (a, b) {
-                    if (a === 'Unknown') return 1;
-                    if (b === 'Unknown') return -1;
-                    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-                });
+            const zones = items.filter(function (item, index, array) {
+                return array.findIndex(function (candidate) { return candidate.zone === item.zone; }) === index;
+            }).map(function (item) { return item.zone; }).sort(function (a, b) {
+                return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+            });
 
             const zoneOptionsHtml = [
                 "<option value='all'" + (selectedZoneFilter === "all" ? " selected" : "") + ">All zones</option>"
@@ -1211,6 +1247,7 @@
                 return "<option value='" + zone + "'" + (zone === selectedZoneFilter ? " selected" : "") + ">" + zone + "</option>";
             })).join("");
 
+            const riskLevels = getRiskLevels();
             const riskOptionsHtml = riskLevels.map(function (level) {
                 const checked = selectedRiskFilters.indexOf(level) !== -1 ? " checked" : "";
                 return "<label class='risk-option'><input type='checkbox' value='" + level + "' onchange='filterChanged()'" + checked + "><span>" + level + "</span></label>";
@@ -1234,19 +1271,20 @@
                 landingListHtml +
                 developerControlsMarkup() +
                 "<a href='#' class='developer-link' id='developerModeLink' onclick='toggleDeveloperMode(event)'>" + (developerModeEnabled ? "Developer Mode: On" : "Developer Mode") + "</a>";
+            renderPins();
             applyFilters();
         }
 
         function filtersAreActive() {
             const hasZoneFilter = selectedZoneFilter !== "all";
-            const hasRiskSubset = selectedRiskFilters.length > 0 && selectedRiskFilters.length < riskLevels.length;
+            const hasRiskSubset = selectedRiskFilters.length > 0 && selectedRiskFilters.length < getRiskLevels().length;
             return hasZoneFilter || hasRiskSubset || selectedRemovedFilter;
         }
 
         function allZonesAndAllRiskSelected() {
             const zone = document.getElementById("zoneSelect");
             const zoneValue = selectedZoneFilter !== "all" ? selectedZoneFilter : (zone ? zone.value : "all");
-            return zoneValue === "all" && selectedRiskFilters.length === riskLevels.length;
+            return zoneValue === "all" && selectedRiskFilters.length === getRiskLevels().length;
         }
 
         function landingMatchMarkup(matches, isClusterView) {
@@ -1357,7 +1395,9 @@
             syncRiskSelectAll();
             const matches = matchingItems();
             if (selectedItemId && matches.every(function (item) { return item.id !== selectedItemId; })) selectedItemId = null;
+
             renderFilterShell();
+            if (selectedItemId) renderDetail(matchingItems(), directPinSelection);
         }
 
         function toggleSelectAllRisks(checked) {
