@@ -23,11 +23,14 @@
 
         .container {
             display: flex;
-            height: 100vh;
+            flex: 1 1 auto;
+            min-height: 0;
+            height: auto;
         }
 
         .floorplan {
             flex: 1;
+            min-height: 0;
             overflow: auto;
             position: relative;
             background: #f5f5f5;
@@ -408,11 +411,29 @@
         .metadata hr { border: 0; border-top: 1px solid #ddd; margin: 18px 0; }
         .metadata img { width: 100%; margin-top: 10px; }
 
+        .app-shell {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .map-header {
+            position: sticky;
+            top: 0;
+            z-index: 2000;
+            display: flex;
+            justify-content: flex-end;
+            padding: 12px 12px 0;
+            background: #f5f5f5;
+            border-bottom: 1px solid var(--border);
+            flex: 0 0 auto;
+        }
+
         .pin-key {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 9999;
+            position: relative;
+            top: auto;
+            left: auto;
+            z-index: 1;
             width: fit-content;
             max-width: 220px;
             padding: 10px;
@@ -472,10 +493,10 @@
         }
 
         .zoom-controls {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            z-index: 9999;
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            z-index: 1100;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
@@ -488,7 +509,7 @@
             margin: 0;
             border: none;
             border-radius: 6px;
-            background: #333;
+            background: rgba(51, 51, 51, .9);
             color: white;
             font-size: 20px;
             font-weight: bold;
@@ -524,14 +545,13 @@
             .pin-key {
                 width: fit-content;
                 max-width: min(220px, calc(100vw - 24px));
-                top: 12px;
-                right: 12px;
+                top: auto;
+                right: auto;
                 left: auto;
-                z-index: 1100;
+                z-index: 1;
             }
 
             .zoom-controls {
-                position: absolute;
                 top: 12px;
                 left: 12px;
                 bottom: auto;
@@ -541,9 +561,9 @@
 
         @media (max-width: 640px) {
             .pin-key {
-                position: fixed;
-                top: 12px;
-                right: 12px;
+                position: relative;
+                top: auto;
+                right: auto;
                 left: auto;
                 width: fit-content;
                 max-width: min(210px, calc(100vw - 24px));
@@ -586,31 +606,33 @@
 </head>
 
 <body>
-    <div class="zoom-controls">
-        <button class="fit-button" onclick="fitAll()" title="Fit the whole plan in view">Fit</button>
-        <button onclick="zoomIn()" aria-label="Zoom in">+</button>
-        <button onclick="zoomOut()" aria-label="Zoom out">−</button>
-    </div>
-
-    <div class="pin-key" aria-label="ACM Risk Score legend">
-        <strong>KEY</strong>
-        <div class="key-row"><span class="key-swatch high"></span>High risk</div>
-        <div class="key-row"><span class="key-swatch medium"></span>Medium risk</div>
-        <div class="key-row"><span class="key-swatch low"></span>Low risk</div>
-        <div class="key-row"><span class="key-swatch very-low"></span>Very low risk</div>
-        <div class="key-row"><span class="key-swatch nad"></span>NAD</div>
-        <div class="key-row"><span class="key-swatch removed"></span>Removed</div>
-        <div class="key-row"><span class="key-swatch overlap"></span>More than one item</div>
-        <div class="key-row"><span class="key-swatch presumed"></span>Presumed</div>
-    </div>
-
-    <div class="container">
-        <div class="floorplan" id="floorplan">
-            <div id="planContainer">
-                <img src="Plans/Lower Ground Floor_Ver15-1_160926.png" draggable="false" alt="Lower Ground Floor plan">
-                <div class="selection-box" id="selectionBox"></div>
+    <div class="app-shell">
+        <div class="map-header">
+            <div class="pin-key" aria-label="ACM Risk Score legend">
+                <strong>KEY</strong>
+                <div class="key-row"><span class="key-swatch high"></span>High risk</div>
+                <div class="key-row"><span class="key-swatch medium"></span>Medium risk</div>
+                <div class="key-row"><span class="key-swatch low"></span>Low risk</div>
+                <div class="key-row"><span class="key-swatch very-low"></span>Very low risk</div>
+                <div class="key-row"><span class="key-swatch nad"></span>NAD</div>
+                <div class="key-row"><span class="key-swatch removed"></span>Removed</div>
+                <div class="key-row"><span class="key-swatch overlap"></span>More than one item</div>
+                <div class="key-row"><span class="key-swatch presumed"></span>Presumed</div>
             </div>
         </div>
+
+        <div class="container">
+            <div class="floorplan" id="floorplan">
+                <div class="zoom-controls">
+                    <button class="fit-button" onclick="fitAll()" title="Fit the whole plan in view">Fit</button>
+                    <button onclick="zoomIn()" aria-label="Zoom in">+</button>
+                    <button onclick="zoomOut()" aria-label="Zoom out">−</button>
+                </div>
+                <div id="planContainer">
+                    <img src="Plans/Lower Ground Floor_Ver15-1_160926.png" draggable="false" alt="Lower Ground Floor plan">
+                    <div class="selection-box" id="selectionBox"></div>
+                </div>
+            </div>
         <div class="resizer" id="resizer" role="separator" aria-orientation="vertical"
             aria-label="Resize information panel" tabindex="0"></div>
         <aside class="info" id="info">
