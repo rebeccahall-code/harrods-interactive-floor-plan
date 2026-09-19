@@ -462,7 +462,7 @@
         .key-swatch.low { background: #f4c542; }
         .key-swatch.very-low { background: #2e9b45; }
         .key-swatch.nad { background: #111; }
-                ".key-swatch.removed { background: #8b4b2a; }
+        .key-swatch.removed { background: #8b4b2a; }
         .key-swatch.overlap {
             background: #7b2cbf;
         }
@@ -542,32 +542,44 @@
                 display: none;
             }
 
+            .map-header {
+                position: fixed;
+                top: 0;
+                right: 0;
+                left: auto;
+                z-index: 2000;
+                padding: 12px 12px 0 0;
+                background: transparent;
+                border-bottom: none;
+            }
+
             .pin-key {
+                position: fixed;
+                top: 12px;
+                right: 12px;
+                left: auto;
                 width: fit-content;
                 max-width: min(220px, calc(100vw - 24px));
-                top: auto;
-                right: auto;
-                left: auto;
-                z-index: 1;
+                margin: 0;
+                pointer-events: none;
+                z-index: 2001;
             }
 
             .zoom-controls {
-                top: 12px;
+                position: fixed;
+                top: 92px;
                 left: 12px;
                 bottom: auto;
-                z-index: 1100;
+                z-index: 2002;
             }
         }
 
         @media (max-width: 640px) {
             .pin-key {
-                position: relative;
-                top: auto;
-                right: auto;
-                left: auto;
+                top: 12px;
+                right: 12px;
                 width: fit-content;
                 max-width: min(210px, calc(100vw - 24px));
-                margin: 0;
             }
 
             .container {
@@ -597,7 +609,7 @@
             }
 
             .zoom-controls {
-                top: 12px;
+                top: 90px;
                 left: 12px;
                 bottom: auto;
             }
