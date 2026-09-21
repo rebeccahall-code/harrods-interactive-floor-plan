@@ -264,6 +264,9 @@
             font-weight: 400;
             line-height: 1.2;
         }
+        .filter-group label.risk-option {
+            font-weight: 400;
+        }
         .risk-option input {
             margin: 0;
             width: 13px;
@@ -385,6 +388,36 @@
             font-size: 13px;
         }
 
+        .area-selection-row {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .area-select-button {
+            width: auto;
+            max-width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #888;
+            border-radius: 4px;
+            background: #f5f5f5;
+            color: var(--ink);
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.4;
+            text-align: left;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+        }
+        .area-select-button.is-active {
+            background: #1769aa;
+            border-color: #1769aa;
+            color: #fff;
+        }
+        .floorplan.area-selecting {
+            cursor: crosshair;
+            touch-action: none;
+        }
+
         .navigator {
             display: flex;
             align-items: center;
@@ -417,23 +450,20 @@
             height: 100vh;
         }
 
-        .map-header {
-            position: sticky;
-            top: 0;
-            z-index: 2000;
+        .floorplan-area {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
             display: flex;
-            justify-content: flex-end;
-            padding: 12px 12px 0;
-            background: #f5f5f5;
-            border-bottom: 1px solid var(--border);
-            flex: 0 0 auto;
+            flex-direction: column;
         }
 
         .pin-key {
-            position: relative;
-            top: auto;
-            left: auto;
-            z-index: 1;
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 2001;
             width: fit-content;
             max-width: 220px;
             padding: 10px;
@@ -494,8 +524,9 @@
 
         .zoom-controls {
             position: absolute;
-            top: 14px;
+            bottom: 14px;
             left: 14px;
+            top: auto;
             z-index: 1100;
             display: flex;
             flex-direction: column;
@@ -525,7 +556,7 @@
                 min-height: 100vh;
             }
 
-            .floorplan {
+            .floorplan-area {
                 min-height: 58vh;
                 max-height: 62vh;
                 border-bottom: 1px solid var(--border);
@@ -542,17 +573,6 @@
                 display: none;
             }
 
-            .map-header {
-                position: fixed;
-                top: 0;
-                right: 0;
-                left: auto;
-                z-index: 2000;
-                padding: 12px 12px 0 0;
-                background: transparent;
-                border-bottom: none;
-            }
-
             .pin-key {
                 position: fixed;
                 top: 12px;
@@ -563,14 +583,6 @@
                 margin: 0;
                 pointer-events: none;
                 z-index: 2001;
-            }
-
-            .zoom-controls {
-                position: fixed;
-                top: 92px;
-                left: 12px;
-                bottom: auto;
-                z-index: 2002;
             }
         }
 
@@ -586,7 +598,7 @@
                 min-height: 0;
             }
 
-            .floorplan {
+            .floorplan-area {
                 min-height: 46vh;
                 max-height: 52vh;
             }
@@ -607,49 +619,43 @@
                 max-height: none;
                 min-height: 120px;
             }
-
-            .zoom-controls {
-                top: 90px;
-                left: 12px;
-                bottom: auto;
-            }
         }
     </style>
 </head>
 
 <body>
     <div class="app-shell">
-        <div class="map-header">
-            <div class="pin-key" aria-label="ACM Risk Score legend">
-                <strong>KEY</strong>
-                <div class="key-row"><span class="key-swatch high"></span>High risk</div>
-                <div class="key-row"><span class="key-swatch medium"></span>Medium risk</div>
-                <div class="key-row"><span class="key-swatch low"></span>Low risk</div>
-                <div class="key-row"><span class="key-swatch very-low"></span>Very low risk</div>
-                <div class="key-row"><span class="key-swatch nad"></span>NAD</div>
-                <div class="key-row"><span class="key-swatch removed"></span>Removed</div>
-                <div class="key-row"><span class="key-swatch overlap"></span>More than one item</div>
-                <div class="key-row"><span class="key-swatch presumed"></span>Presumed</div>
-            </div>
-        </div>
-
         <div class="container">
-            <div class="floorplan" id="floorplan">
+            <div class="floorplan-area">
+                <div class="floorplan" id="floorplan">
+                    <div id="planContainer">
+                        <img src="Plans/Lower Ground Floor_Ver15-1_160926.png" draggable="false" alt="Lower Ground Floor plan">
+                        <div class="selection-box" id="selectionBox"></div>
+                    </div>
+                </div>
+                <div class="pin-key" aria-label="ACM Risk Score legend">
+                    <strong>KEY</strong>
+                    <div class="key-row"><span class="key-swatch high"></span>High risk</div>
+                    <div class="key-row"><span class="key-swatch medium"></span>Medium risk</div>
+                    <div class="key-row"><span class="key-swatch low"></span>Low risk</div>
+                    <div class="key-row"><span class="key-swatch very-low"></span>Very low risk</div>
+                    <div class="key-row"><span class="key-swatch nad"></span>NAD</div>
+                    <div class="key-row"><span class="key-swatch removed"></span>Removed</div>
+                    <div class="key-row"><span class="key-swatch overlap"></span>More than one item</div>
+                    <div class="key-row"><span class="key-swatch presumed"></span>Presumed</div>
+                </div>
                 <div class="zoom-controls">
                     <button class="fit-button" onclick="fitAll()" title="Fit the whole plan in view">Fit</button>
                     <button onclick="zoomIn()" aria-label="Zoom in">+</button>
                     <button onclick="zoomOut()" aria-label="Zoom out">−</button>
                 </div>
-                <div id="planContainer">
-                    <img src="Plans/Lower Ground Floor_Ver15-1_160926.png" draggable="false" alt="Lower Ground Floor plan">
-                    <div class="selection-box" id="selectionBox"></div>
-                </div>
             </div>
-        <div class="resizer" id="resizer" role="separator" aria-orientation="vertical"
-            aria-label="Resize information panel" tabindex="0"></div>
-        <aside class="info" id="info">
-            <a href="#" class="developer-link" id="developerModeLink" onclick="toggleDeveloperMode(event)">Developer Mode</a>
-        </aside>
+            <div class="resizer" id="resizer" role="separator" aria-orientation="vertical"
+                aria-label="Resize information panel" tabindex="0"></div>
+            <aside class="info" id="info">
+                <a href="#" class="developer-link" id="developerModeLink" onclick="toggleDeveloperMode(event)">Developer Mode</a>
+            </aside>
+        </div>
     </div>
 
     <script>
@@ -1099,6 +1105,8 @@
         let selectedRiskFilters = [];
         let selectedRemovedFilter = false;
         let activeClusterItems = [];
+        let areaSelectionItems = null;
+        let areaSelectionRect = null;
         let areaSelectionEnabled = false;
         let areaStart = null;
         let panStartX;
@@ -1123,7 +1131,8 @@
         function renderPins() {
             planContainer.querySelectorAll(".pin").forEach(function (pin) { pin.remove(); });
 
-            const visibleMatches = filtersAreActive() ? matchingItems() : items.slice();
+            const showScopedMatches = filtersAreActive() || areaSelectionItems !== null;
+            const visibleMatches = showScopedMatches ? matchingItems() : items.slice();
             const visibleItemIds = new Set(visibleMatches.map(function (item) { return String(item.id); }));
             const groupedPositions = {};
 
@@ -1236,9 +1245,18 @@
             const zone = document.getElementById("zoneSelect");
             const activeZone = selectedZoneFilter !== "all" ? selectedZoneFilter : (zone ? zone.value : "all");
             const risks = selectedRisks();
-            return items.filter(function (item) {
+            const baseMatches = items.filter(function (item) {
                 return (activeZone === "all" || item.zone === activeZone) && itemRiskMatches(item, risks);
             });
+
+            if (areaSelectionItems && areaSelectionItems.length) {
+                const areaMatchIds = new Set(areaSelectionItems.map(function (item) { return String(item.id); }));
+                return baseMatches.filter(function (item) {
+                    return areaMatchIds.has(String(item.id));
+                });
+            }
+
+            return baseMatches;
         }
 
         function applyFilters() {
@@ -1308,8 +1326,19 @@
             const removedChecked = selectedRemovedFilter ? " checked" : "";
             const removedOptionHtml = "<div class='filter-group removed-option-row'><label class='risk-option'><input id='removedRiskFilter' type='checkbox' value='Removed' onchange='filterChanged()'" + removedChecked + "><span>Removed</span></label></div>";
 
-            const matches = activeClusterItems.length ? activeClusterItems : matchingItems();
-            const landingListHtml = landingMatchMarkup(matches, !!activeClusterItems.length);
+            const areaSelectionActive = areaSelectionItems !== null;
+            const filterMatches = matchingItems();
+            const matches = areaSelectionActive
+                ? areaSelectionItems.filter(function (item) { return filterMatches.indexOf(item) !== -1; })
+                : (activeClusterItems.length ? activeClusterItems : filterMatches);
+            const landingListHtml = landingMatchMarkup(matches, !!activeClusterItems.length, areaSelectionActive);
+            const areaSelectionHtml =
+                "<div class='filter-group area-selection-row'>" +
+                "<button type='button' class='secondary-button area-select-button" + (areaSelectionEnabled ? " is-active" : "") + "' onclick='toggleAreaSelection()'>" +
+                (areaSelectionEnabled ? "Cancel Area Selection" : "Select Area") +
+                "</button>" +
+                "<p class='area-help'>" + (areaSelectionEnabled ? "Drag a box on the plan to list the matching pins inside it." : "Drag a box over the area on the plan you require. Any filters above still apply.") + "</p>" +
+                "</div>";
 
             infoPanel.innerHTML =
                 "<button class='close-button' type='button' aria-label='Close item details' onclick='resetToLanding()'>&times;</button>" +
@@ -1320,11 +1349,14 @@
                 "</select></div>" +
                 "<div class='filter-group'><label>ACM Risk Score:</label><div class='risk-checkbox-list' id='riskFilter'>" + riskOptionsHtml + "</div></div>" +
                 removedOptionHtml +
+                areaSelectionHtml +
                 landingListHtml +
                 developerControlsMarkup() +
                 "<a href='#' class='developer-link' id='developerModeLink' onclick='toggleDeveloperMode(event)'>" + (developerModeEnabled ? "Developer Mode: On" : "Developer Mode") + "</a>";
+            floorplan.classList.toggle("area-selecting", areaSelectionEnabled);
             renderPins();
             applyFilters();
+            renderAreaSelectionBox();
         }
 
         function filtersAreActive() {
@@ -1339,13 +1371,16 @@
             return zoneValue === "all" && selectedRiskFilters.length === getRiskLevels().length;
         }
 
-        function landingMatchMarkup(matches, isClusterView) {
-            if (!filtersAreActive() && !allZonesAndAllRiskSelected() && !isClusterView) return "";
+        function landingMatchMarkup(matches, isClusterView, isAreaView) {
+            if (!filtersAreActive() && !allZonesAndAllRiskSelected() && !isClusterView && !isAreaView) return "";
             if (!matches.length) {
-                return "<div class='matching-results'><div class='navigator'><span>0 matching items</span></div></div>";
+                return "<div class='matching-results'><div class='navigator'><span>0 matching items" + (isAreaView ? " in selected area" : "") + "</span></div></div>";
             }
 
-            const countLabel = isClusterView ? (matches.length + " item" + (matches.length === 1 ? "" : "s") + " in this area") : (matches.length + " matching item" + (matches.length === 1 ? "" : "s"));
+            const plural = matches.length === 1 ? "" : "s";
+            const countLabel = isAreaView ? (matches.length + " matching item" + plural + " in selected area") :
+                isClusterView ? (matches.length + " item" + plural + " in this area") :
+                (matches.length + " matching item" + plural);
             const itemsHtml = matches.map(function (item, index) {
                 return "<div class='matching-item-summary' onclick='selectItem(\"" + item.id + "\")' style='cursor:pointer;'>" +
                     "<strong>" + (index + 1) + " of " + matches.length + " - ITEM " + item.id + " / " + item.ref + " / " + item.title + "</strong>" +
@@ -1467,6 +1502,8 @@
 
         function showClusterItems(clusterItems) {
             activeClusterItems = (clusterItems || []).slice();
+            areaSelectionItems = null;
+            areaSelectionRect = null;
             selectedItemId = null;
             directPinSelection = false;
             areaSelectionEnabled = false;
@@ -1476,6 +1513,10 @@
         function selectItem(itemId, fromPin) {
             const item = items.find(function (candidate) { return candidate.id === itemId; });
             activeClusterItems = [];
+            if (!areaSelectionItems || !areaSelectionItems.some(function (candidate) { return String(candidate.id) === String(itemId); })) {
+                areaSelectionItems = null;
+                areaSelectionRect = null;
+            }
             selectedItemId = itemId;
             directPinSelection = !!fromPin;
             areaSelectionEnabled = false;
@@ -1498,6 +1539,8 @@
             selectedRiskFilters = [];
             selectedRemovedFilter = false;
             areaSelectionEnabled = false;
+            areaSelectionItems = null;
+            areaSelectionRect = null;
             selectionBox.style.display = "none";
             renderFilterShell();
         }
@@ -1505,8 +1548,29 @@
         function toggleAreaSelection() {
             if (selectedItemId) return;
             areaSelectionEnabled = !areaSelectionEnabled;
+            areaSelectionItems = null;
+            areaSelectionRect = null;
             selectionBox.style.display = "none";
             renderFilterShell();
+        }
+
+        function renderAreaSelectionBox() {
+            if (!areaSelectionRect) {
+                selectionBox.style.display = "none";
+                return;
+            }
+
+            const bounds = planContainer.getBoundingClientRect();
+            const left = (areaSelectionRect.left / 100) * bounds.width;
+            const top = (areaSelectionRect.top / 100) * bounds.height;
+            const width = ((areaSelectionRect.right - areaSelectionRect.left) / 100) * bounds.width;
+            const height = ((areaSelectionRect.bottom - areaSelectionRect.top) / 100) * bounds.height;
+
+            selectionBox.style.left = left + "px";
+            selectionBox.style.top = top + "px";
+            selectionBox.style.width = width + "px";
+            selectionBox.style.height = height + "px";
+            selectionBox.style.display = "block";
         }
 
         function updateZoom() {
@@ -1516,6 +1580,7 @@
             planContainer.querySelectorAll(".pin").forEach(function (pin) {
                 pin.style.setProperty("--pin-scale", pinScale);
             });
+            renderAreaSelectionBox();
         }
 
         function selectZone(zone) {
@@ -1536,10 +1601,8 @@
         function zoomIn() { zoomLevel += .2; updateZoom(); }
         function zoomOut() { zoomLevel = Math.max(.5, zoomLevel - .2); updateZoom(); }
 
-        function pinInRectangle(pin, rectangle) {
-            const bounds = pin.getBoundingClientRect();
-            return bounds.left >= rectangle.left && bounds.right <= rectangle.right &&
-                bounds.top >= rectangle.top && bounds.bottom <= rectangle.bottom;
+        function itemInAreaRect(item, rect) {
+            return item.x >= rect.left && item.x <= rect.right && item.y >= rect.top && item.y <= rect.bottom;
         }
 
         function areaRectangle() {
@@ -1594,15 +1657,19 @@
             if (!floorplan.hasPointerCapture(event.pointerId)) return;
             if (areaStart) {
                 const rectangle = areaRectangle();
-                const matches = matchingItems();
-                const selected = items.find(function (item) {
-                    const pin = document.getElementById("pin-" + item.id);
-                    return matches.indexOf(item) !== -1 && pin && pinInRectangle(pin, rectangle);
-                });
+                const planBounds = planContainer.getBoundingClientRect();
+                areaSelectionRect = {
+                    left: (rectangle.left - planBounds.left) / planBounds.width * 100,
+                    right: (rectangle.right - planBounds.left) / planBounds.width * 100,
+                    top: (rectangle.top - planBounds.top) / planBounds.height * 100,
+                    bottom: (rectangle.bottom - planBounds.top) / planBounds.height * 100
+                };
+                areaSelectionItems = items.filter(function (item) { return itemInAreaRect(item, areaSelectionRect); });
                 areaStart = null;
+                areaSelectionEnabled = false;
                 floorplan.releasePointerCapture(event.pointerId);
-                selectionBox.style.display = "none";
-                if (selected) selectItem(selected.id);
+                renderAreaSelectionBox();
+                renderFilterShell();
             } else {
                 floorplan.releasePointerCapture(event.pointerId);
                 floorplan.classList.remove("is-panning");
