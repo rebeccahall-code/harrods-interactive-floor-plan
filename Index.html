@@ -1151,11 +1151,11 @@
         const FLOOR_PLAN_OPTIONS = {
             overlay: {
                 label: "Overlay Plan",
-                src: "Plans/Lower Ground Floor_Ver15-1_160926.png"
+                src: encodeURI("Plans/Lower Ground Floor_Ver15-1_160926.png")
             },
             fire: {
                 label: "Fire Plan",
-                src: "Plans/Lower Ground Floor Fire Plan.jpg"
+                src: encodeURI("Plans/Lower Ground Floor Fire Plan.jpg")
             }
         };
 
@@ -1179,7 +1179,7 @@
         const layout = document.querySelector(".container");
         const floorplan = document.getElementById("floorplan");
         const planContainer = document.getElementById("planContainer");
-        const planImage = planContainer.querySelector("img");
+        let planImage = planContainer.querySelector("img");
         planImage.classList.add("plan-base-image");
         const selectionBox = document.getElementById("selectionBox");
 
@@ -1191,9 +1191,20 @@
 
         function updatePlanDisplay() {
             const selectedPlan = FLOOR_PLAN_OPTIONS[activePlanKey] || FLOOR_PLAN_OPTIONS.overlay;
-            planImage.src = selectedPlan.src;
-            planImage.alt = selectedPlan.label;
-            planImage.style.opacity = "1";
+            const nextImage = new Image();
+            nextImage.decoding = "sync";
+            nextImage.loading = "eager";
+            nextImage.draggable = false;
+            nextImage.alt = selectedPlan.label;
+            nextImage.className = "plan-base-image";
+            nextImage.style.width = "100%";
+            nextImage.style.display = "block";
+            nextImage.style.opacity = "1";
+            nextImage.src = selectedPlan.src + "?v=" + Date.now();
+
+            planContainer.insertBefore(nextImage, planImage);
+            planImage.remove();
+            planImage = nextImage;
 
             const toggleButtons = document.querySelectorAll(".plan-mode-option");
             toggleButtons.forEach(function (button) {
