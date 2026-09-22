@@ -1011,16 +1011,6 @@
             return 'Low';
         }
 
-        function normalizeZone(value) {
-            const raw = String(value || '').trim();
-            if (!raw) return '';
-            const normalized = raw.toLowerCase();
-            if (['unknown', 'unknown zone', 'not known', 'n/a', 'na', 'none', 'unassigned'].indexOf(normalized) !== -1) {
-                return '';
-            }
-            return raw;
-        }
-
         function parseBoolean(value) {
             return String(value || '').trim().toLowerCase() === 'true';
         }
@@ -1072,7 +1062,7 @@
                 surveyType: String(record.surveyType || '').trim(),
                 floor: String(record.floor || '').trim(),
                 location: String(record.location || '').trim(),
-                zone: normalizeZone(record.zone),
+                zone: String(record.zone || '').trim(),
                 zoneLabel: String(record.zoneLabel || '').trim(),
                 itemDescription: String(record.itemDescription || '').trim(),
                 comments: String(record.comments || '').trim(),
@@ -1220,11 +1210,8 @@
         function renderPins() {
             planContainer.querySelectorAll(".pin").forEach(function (pin) { pin.remove(); });
 
-            const displayableItems = items.filter(function (item) {
-                return !!normalizeZone(item.zone);
-            });
             const showScopedMatches = filtersAreActive() || areaSelectionItems !== null;
-            const visibleMatches = showScopedMatches ? matchingItems() : displayableItems.slice();
+            const visibleMatches = showScopedMatches ? matchingItems() : items.slice();
             const visibleItemIds = new Set(visibleMatches.map(function (item) { return String(item.id); }));
             const groupedPositions = {};
 
@@ -1234,7 +1221,7 @@
                 groupedPositions[key].push(item);
             });
 
-            displayableItems.forEach(function (item) {
+            items.forEach(function (item) {
                 const pin = document.createElement("button");
                 pin.className = "pin " + riskClass(item);
                 pin.id = "pin-" + item.id;
@@ -1338,7 +1325,7 @@
             const activeZone = selectedZoneFilter !== "all" ? selectedZoneFilter : (zone ? zone.value : "all");
             const risks = selectedRisks();
             const baseMatches = items.filter(function (item) {
-                return !!normalizeZone(item.zone) && (activeZone === "all" || normalizeZone(item.zone) === activeZone) && itemRiskMatches(item, risks);
+                return (activeZone === "all" || item.zone === activeZone) && itemRiskMatches(item, risks);
             });
 
             if (areaSelectionItems && areaSelectionItems.length) {
@@ -1397,11 +1384,9 @@
                 directPinSelection = false;
             }
 
-            const zones = items.filter(function (item) {
-                return !!normalizeZone(item.zone);
-            }).filter(function (item, index, array) {
-                return array.findIndex(function (candidate) { return normalizeZone(candidate.zone) === normalizeZone(item.zone); }) === index;
-            }).map(function (item) { return normalizeZone(item.zone); }).sort(function (a, b) {
+            const zones = items.filter(function (item, index, array) {
+                return array.findIndex(function (candidate) { return candidate.zone === item.zone; }) === index;
+            }).map(function (item) { return item.zone; }).sort(function (a, b) {
                 return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
             });
 
