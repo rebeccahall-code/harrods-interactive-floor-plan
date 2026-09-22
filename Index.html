@@ -57,6 +57,29 @@
             -webkit-user-drag: none;
         }
 
+        .plan-layer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .plan-layer.comparison-layer {
+            z-index: 2;
+        }
+
+        #planContainer > img {
+            position: relative;
+            z-index: 1;
+        }
+
+        #planContainer .plan-base-image {
+            opacity: 1;
+        }
+
         .pin {
             position: absolute;
             width: 22px;
@@ -235,6 +258,30 @@
             font-weight: 700;
         }
         select { max-width: 100%; }
+
+        .plan-mode-toggle {
+            display: flex;
+            width: 100%;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .plan-mode-option {
+            flex: 1;
+            min-height: 34px;
+            border: 1px solid #999;
+            border-radius: 6px;
+            background: #f1f1f1;
+            color: #222;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .plan-mode-option.is-active {
+            background: #111;
+            border-color: #111;
+            color: #fff;
+        }
 
         .removed-option-row {
             margin-top: 2px;
@@ -964,6 +1011,16 @@
             return 'Low';
         }
 
+        function normalizeZone(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            const normalized = raw.toLowerCase();
+            if (['unknown', 'unknown zone', 'not known', 'n/a', 'na', 'none', 'unassigned'].indexOf(normalized) !== -1) {
+                return '';
+            }
+            return raw;
+        }
+
         function parseBoolean(value) {
             return String(value || '').trim().toLowerCase() === 'true';
         }
@@ -1015,7 +1072,7 @@
                 surveyType: String(record.surveyType || '').trim(),
                 floor: String(record.floor || '').trim(),
                 location: String(record.location || '').trim(),
-                zone: String(record.zone || '').trim(),
+                zone: normalizeZone(record.zone),
                 zoneLabel: String(record.zoneLabel || '').trim(),
                 itemDescription: String(record.itemDescription || '').trim(),
                 comments: String(record.comments || '').trim(),
@@ -1101,6 +1158,18 @@
         let zoomLevel = 1;
         let selectedItemId = null;
         let directPinSelection = false;
+        const FLOOR_PLAN_OPTIONS = {
+            overlay: {
+                label: "Overlay Plan",
+                src: "Plans/Lower Ground Floor_Ver15-1_160926.png"
+            },
+            fire: {
+                label: "Fire Plan",
+                src: "Plans/Lower Ground Floor Fire Plan.jpg"
+            }
+        };
+
+        let activePlanKey = "overlay";
         let selectedZoneFilter = "all";
         let selectedRiskFilters = [];
         let selectedRemovedFilter = false;
@@ -1121,7 +1190,27 @@
         const floorplan = document.getElementById("floorplan");
         const planContainer = document.getElementById("planContainer");
         const planImage = planContainer.querySelector("img");
+        planImage.classList.add("plan-base-image");
         const selectionBox = document.getElementById("selectionBox");
+
+        function setPlanMode(mode) {
+            if (!FLOOR_PLAN_OPTIONS[mode]) return;
+            activePlanKey = mode;
+            updatePlanDisplay();
+        }
+
+        function updatePlanDisplay() {
+            const selectedPlan = FLOOR_PLAN_OPTIONS[activePlanKey] || FLOOR_PLAN_OPTIONS.overlay;
+            planImage.src = selectedPlan.src;
+            planImage.alt = selectedPlan.label;
+            planImage.style.opacity = "1";
+
+            const toggleButtons = document.querySelectorAll(".plan-mode-option");
+            toggleButtons.forEach(function (button) {
+                const isActive = button.dataset.plan === activePlanKey;
+                button.classList.toggle("is-active", isActive);
+            });
+        }
 
         function riskClass(item) {
             if (item.status === "removed") return "removed";
@@ -1131,8 +1220,11 @@
         function renderPins() {
             planContainer.querySelectorAll(".pin").forEach(function (pin) { pin.remove(); });
 
+            const displayableItems = items.filter(function (item) {
+                return !!normalizeZone(item.zone);
+            });
             const showScopedMatches = filtersAreActive() || areaSelectionItems !== null;
-            const visibleMatches = showScopedMatches ? matchingItems() : items.slice();
+            const visibleMatches = showScopedMatches ? matchingItems() : displayableItems.slice();
             const visibleItemIds = new Set(visibleMatches.map(function (item) { return String(item.id); }));
             const groupedPositions = {};
 
@@ -1142,7 +1234,7 @@
                 groupedPositions[key].push(item);
             });
 
-            items.forEach(function (item) {
+            displayableItems.forEach(function (item) {
                 const pin = document.createElement("button");
                 pin.className = "pin " + riskClass(item);
                 pin.id = "pin-" + item.id;
@@ -1246,7 +1338,7 @@
             const activeZone = selectedZoneFilter !== "all" ? selectedZoneFilter : (zone ? zone.value : "all");
             const risks = selectedRisks();
             const baseMatches = items.filter(function (item) {
-                return (activeZone === "all" || item.zone === activeZone) && itemRiskMatches(item, risks);
+                return !!normalizeZone(item.zone) && (activeZone === "all" || normalizeZone(item.zone) === activeZone) && itemRiskMatches(item, risks);
             });
 
             if (areaSelectionItems && areaSelectionItems.length) {
@@ -1305,9 +1397,11 @@
                 directPinSelection = false;
             }
 
-            const zones = items.filter(function (item, index, array) {
-                return array.findIndex(function (candidate) { return candidate.zone === item.zone; }) === index;
-            }).map(function (item) { return item.zone; }).sort(function (a, b) {
+            const zones = items.filter(function (item) {
+                return !!normalizeZone(item.zone);
+            }).filter(function (item, index, array) {
+                return array.findIndex(function (candidate) { return normalizeZone(candidate.zone) === normalizeZone(item.zone); }) === index;
+            }).map(function (item) { return normalizeZone(item.zone); }).sort(function (a, b) {
                 return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
             });
 
@@ -1343,6 +1437,13 @@
             infoPanel.innerHTML =
                 "<button class='close-button' type='button' aria-label='Close item details' onclick='resetToLanding()'>&times;</button>" +
                 "<h2>SELECT ITEM ON MAP OR USE THE BELOW FILTERS</h2>" +
+                "<div class='filter-group'>" +
+                "<label>Floor Plan:</label>" +
+                "<div class='plan-mode-toggle'>" +
+                "<button type='button' class='plan-mode-option" + (activePlanKey === "overlay" ? " is-active" : "") + "' data-plan='overlay' onclick='setPlanMode(\"overlay\")'>Overlay Plan</button>" +
+                "<button type='button' class='plan-mode-option" + (activePlanKey === "fire" ? " is-active" : "") + "' data-plan='fire' onclick='setPlanMode(\"fire\")'>Fire Plan</button>" +
+                "</div>" +
+                "</div>" +
                 "<div class='filter-group'><label for='zoneSelect'>Zone:</label>" +
                 "<select id='zoneSelect' onchange='filterChanged()'>" +
                 zoneOptionsHtml +
@@ -1354,6 +1455,7 @@
                 developerControlsMarkup() +
                 "<a href='#' class='developer-link' id='developerModeLink' onclick='toggleDeveloperMode(event)'>" + (developerModeEnabled ? "Developer Mode: On" : "Developer Mode") + "</a>";
             floorplan.classList.toggle("area-selecting", areaSelectionEnabled);
+            updatePlanDisplay();
             renderPins();
             applyFilters();
             renderAreaSelectionBox();
